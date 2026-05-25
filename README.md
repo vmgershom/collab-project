@@ -22,11 +22,6 @@
 - **Бекенд:** Node.js, Express, Prisma ORM, PostgreSQL, JWT, bcryptjs, multer (завантаження файлів).
 - **Фронтенд:** React, Vite, React Router.
 
-## Вимоги
-
-- Node.js (рекомендовано LTS) та npm.
-- PostgreSQL.
-
 ## Встановлення та запуск
 
 ### 1. Клонувати репозиторій
