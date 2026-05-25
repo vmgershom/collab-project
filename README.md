@@ -32,7 +32,7 @@
 ### 1. Клонувати репозиторій
 
 ```bash
-git clone https://github.com/ВАШ_ЛОГІН/collab-app.git
+git clone https://github.com/vmgershom/collab-project
 cd collab-app
 ```
 
