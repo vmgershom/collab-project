@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TeamStatus {
+  ACTIVE
+  SUBMITTED
+}
+
+enum InvitationType {
+  COURSE
+  TEAM
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  role      Role     @default(STUDENT)
+  name      String
+  email     String   @unique
+  password  String
+  avatar    String?
+  createdAt DateTime @default(now())
+
+  courses  Course[]
+  projects Project[]
+
+  teamMemberships    TeamMember[]
+  assignedTasks      Task[]       @relation("TaskAssignee")
+  createdTasks       Task[]       @relation("TaskCreator")
+  submissions        Submission[]
+  comments           Comment[]
+  materials          Material[]
+  enrollments        Enrollment[]
+  createdInvitations Invitation[]
+
+  givenRatings    PeerRating[] @relation("Rater")
+  receivedRatings PeerRating[] @relation("Ratee")
+
+  studentGrades Grade[] @relation("StudentGrades")
+  teacherGrades Grade[] @relation("TeacherGrades")
+}
+
+model Course {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  teacherId   Int
+  teacher     User     @relation(fields: [teacherId], references: [id])
+  createdAt   DateTime @default(now())
+
+  projects    Project[]
+  materials   Material[]
+  enrollments Enrollment[]
+  invitations Invitation[]
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  deadline    DateTime?
+  courseId    Int
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId   Int
+  teacher     User      @relation(fields: [teacherId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  teams    Team[]
+  comments Comment[]
+  grades   Grade[]
+}
+
+model Team {
+  id        Int        @id @default(autoincrement())
+  name      String
+  status    TeamStatus @default(ACTIVE)
+  openJoin  Boolean    @default(true)
+  projectId Int
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  invitations Invitation[]
+  members     TeamMember[]
+  tasks       Task[]
+  peerRatings PeerRating[]
+  comments    Comment[]
+  submissions Submission[]
+}
+
+model TeamMember {
+  id       Int      @id @default(autoincrement())
+  teamId   Int
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   Int
+  user     User     @relation(fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+model Task {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  deadline    DateTime?
+  completedAt DateTime?
+  teamId      Int
+  team        Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assigneeId  Int?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById Int?
+  createdBy   User?      @relation("TaskCreator", fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+
+  submissions Submission[]
+  comments    Comment[]
+}
+
+model Submission {
+  id          Int      @id @default(autoincrement())
+  fileName    String
+  filePath    String?
+  taskId      Int?
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  teamId      Int?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  studentId   Int
+  student     User     @relation(fields: [studentId], references: [id])
+  submittedAt DateTime @default(now())
+}
+
+model Material {
+  id           Int            @id @default(autoincrement())
+  title        String
+  description  String?
+  courseId     Int?
+  course       Course?        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  uploadedById Int
+  uploadedBy   User           @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime       @default(now())
+  files        MaterialFile[]
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  taskId    Int?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectId Int?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamId    Int?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model PeerRating {
+  id        Int      @id @default(autoincrement())
+  raterId   Int
+  rater     User     @relation("Rater", fields: [raterId], references: [id])
+  rateeId   Int
+  ratee     User     @relation("Ratee", fields: [rateeId], references: [id])
+  teamId    Int
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  score     Int
+  createdAt DateTime @default(now())
+
+  @@unique([raterId, rateeId, teamId])
+}
+
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  courseId   Int
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  enrolledAt DateTime @default(now())
+
+  @@unique([courseId, userId])
+}
+
+model Invitation {
+  id          Int            @id @default(autoincrement())
+  code        String         @unique
+  type        InvitationType
+  courseId    Int?
+  course      Course?        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teamId      Int?
+  team        Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdById Int
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+}
+
+model Grade {
+  id        Int      @id @default(autoincrement())
+  score     Int
+  studentId Int
+  student   User     @relation("StudentGrades", fields: [studentId], references: [id])
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teacherId Int
+  teacher   User     @relation("TeacherGrades", fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, projectId])
+}
+
+model MaterialFile {
+  id         Int      @id @default(autoincrement())
+  fileName   String
+  filePath   String
+  materialId Int
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}

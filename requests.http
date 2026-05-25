@@ -1,0 +1,175 @@
+### Реєстрація викладача
+POST http://localhost:3000/register
+Content-Type: application/json
+
+{
+  "name": "Тестовий Викладач1",
+  "email": "teacher1@test.com",
+  "password": "12345",
+  "role": "TEACHER"
+}
+
+### Вхід
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "email": "teacher@test.com",
+  "password": "12345"
+}
+
+### Поточний користувач (підстав свій токен після Bearer)
+GET http://localhost:3000/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYyMjIyLCJleHAiOjE3Nzk5NjcwMjJ9.mBOTTbbmYYzh2YESoKOpuxnCKeBnO8T0tC0M6BM4Ros
+
+### Створити курс
+POST http://localhost:3000/courses
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYyMjIyLCJleHAiOjE3Nzk5NjcwMjJ9.mBOTTbbmYYzh2YESoKOpuxnCKeBnO8T0tC0M6BM4Ros
+Content-Type: application/json
+
+{
+  "name": "Програмна інженерія",
+  "description": "Курс 8-го семестру"
+}
+
+### Список курсів
+GET http://localhost:3000/courses
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYyMjIyLCJleHAiOjE3Nzk5NjcwMjJ9.mBOTTbbmYYzh2YESoKOpuxnCKeBnO8T0tC0M6BM4Ros
+
+### Створити проєкт (courseId візьми з відповіді створення курсу)
+POST http://localhost:3000/projects
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYxNjQ1LCJleHAiOjE3Nzk5NjY0NDV9.cLu29tFAi-ctRnu0ZiLu7jpvk7FSiiV7G4L6pQE03Fc
+Content-Type: application/json
+
+{
+  "name": "Командний проєкт №1",
+  "description": "Розробка вебзастосунку",
+  "deadline": "2026-06-15",
+  "courseId": 1
+}
+
+### Список проєктів
+GET http://localhost:3000/projects
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYzNjI0LCJleHAiOjE3Nzk5Njg0MjR9.utrO5N_nk0PNeuzagovXzU7QzFA9161VLtyjooVYRc4
+
+### Зареєструвати студента
+POST http://localhost:3000/register
+Content-Type: application/json
+
+{
+  "name": "Студент Два",
+  "email": "student2@test.com",
+  "password": "12345",
+  "role": "STUDENT"
+}
+
+### Створити команду (projectId — твій проєкт; токен викладача-власника)
+POST http://localhost:3000/teams
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYzNjI0LCJleHAiOjE3Nzk5Njg0MjR9.utrO5N_nk0PNeuzagovXzU7QzFA9161VLtyjooVYRc4
+Content-Type: application/json
+
+{
+  "name": "Команда А",
+  "projectId": 1
+}
+
+### Записати студента на курс (1 — id курсу, userId — id студента)
+POST http://localhost:3000/courses/1/students
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYzNjI0LCJleHAiOjE3Nzk5Njg0MjR9.utrO5N_nk0PNeuzagovXzU7QzFA9161VLtyjooVYRc4
+Content-Type: application/json
+
+{
+  "userId": 5
+}
+
+### Додати студента в команду (1 — id команди; userId — id студента)
+POST http://localhost:3000/teams/1/members
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYzNjI0LCJleHAiOjE3Nzk5Njg0MjR9.utrO5N_nk0PNeuzagovXzU7QzFA9161VLtyjooVYRc4
+Content-Type: application/json
+
+{
+  "userId": 4
+}
+
+### Вхід
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+  "email": "student2@test.com",
+  "password": "12345"
+}
+
+### Студент створює команду (projectId — його проєкт)
+POST http://localhost:3000/teams
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5MzY0MzA5LCJleHAiOjE3Nzk5NjkxMDl9.bTTlZthc2FD6e8-R80Oh2GWMxkG1ByTyNPrFIjSdul8
+Content-Type: application/json
+
+{
+  "name": "Команда студентів",
+  "projectId": 1
+}
+
+### Студент приєднується сам (id команди в адресі, свій userId)
+POST http://localhost:3000/teams/2/members
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5MzY0MzA5LCJleHAiOjE3Nzk5NjkxMDl9.bTTlZthc2FD6e8-R80Oh2GWMxkG1ByTyNPrFIjSdul8
+Content-Type: application/json
+
+{
+  "userId": 3
+}
+
+### Список команд проєкту
+GET http://localhost:3000/teams?projectId=1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5MzYzNjI0LCJleHAiOjE3Nzk5Njg0MjR9.utrO5N_nk0PNeuzagovXzU7QzFA9161VLtyjooVYRc4
+
+### Створити завдання
+POST http://localhost:3000/tasks
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5MzY0MzA5LCJleHAiOjE3Nzk5NjkxMDl9.bTTlZthc2FD6e8-R80Oh2GWMxkG1ByTyNPrFIjSdul8
+Content-Type: application/json
+
+{
+  "title": "Зробити завдання 5",
+  "description": "Якийсь-то опис",
+  "deadline": "2026-06-01",
+  "teamId": 1,
+  "assigneeId": 4
+}
+
+### Список завдань команди
+GET http://localhost:3000/tasks?teamId=1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5MzY0MzA5LCJleHAiOjE3Nzk5NjkxMDl9.bTTlZthc2FD6e8-R80Oh2GWMxkG1ByTyNPrFIjSdul8
+
+### Позначити завдання виконаним (id завдання в адресі)
+PATCH http://localhost:3000/tasks/6
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5Mzc0ODE5LCJleHAiOjE3Nzk5Nzk2MTl9.C7qLrupe_F6vP49CR1Rpt_1C6xEME_ciFlS81EQnh5U
+Content-Type: application/json
+
+{
+  "status": "DONE"
+}
+
+### Коментар до завдання (токен студента)
+POST http://localhost:3000/comments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5Mzc0ODE5LCJleHAiOjE3Nzk5Nzk2MTl9.C7qLrupe_F6vP49CR1Rpt_1C6xEME_ciFlS81EQnh5U
+Content-Type: application/json
+
+{
+  "content": "Закінчив роботу",
+  "taskId": 5
+}
+
+### Оцінка співпраці (токен студента-оцінювача)
+POST http://localhost:3000/ratings
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsInJvbGUiOiJTVFVERU5UIiwiaWF0IjoxNzc5MzY0MzA5LCJleHAiOjE3Nzk5NjkxMDl9.bTTlZthc2FD6e8-R80Oh2GWMxkG1ByTyNPrFIjSdul8
+Content-Type: application/json
+
+{
+  "teamId": 1,
+  "rateeId": 4,
+  "score": 4
+}
+
+### Аналітика внеску команди (id команди в адресі)
+GET http://localhost:3000/analytics/teams/1/contribution
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc5Mzc1NzYwLCJleHAiOjE3Nzk5ODA1NjB9.P1O7XYDRp-RooweW2fKBPk9u_LQ6a_dBaxEPkDngfO4
