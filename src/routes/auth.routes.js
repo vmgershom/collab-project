@@ -80,7 +80,6 @@ router.get('/me', authenticate, async (req, res) => {
   res.json(user);
 });
 
-// оновити власний профіль
 router.patch('/me', authenticate, async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -120,7 +119,6 @@ router.patch('/me', authenticate, async (req, res) => {
   }
 });
 
-// завантажити аватар
 router.post('/me/avatar', authenticate, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Файл не надіслано' });

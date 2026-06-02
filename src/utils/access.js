@@ -1,6 +1,5 @@
 const prisma = require('../prismaClient');
 
-// доступ до команди: учасник або викладач-власник проєкту
 async function getTeamAccess(teamId, user) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },

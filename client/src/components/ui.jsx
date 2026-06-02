@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 export function Button({ variant = 'primary', block, type = 'button', children, ...props }) {
   const cls = `btn btn-${variant}${block ? ' btn-block' : ''}`;
@@ -52,6 +54,50 @@ export function Select({ value, onChange, options = [], placeholder = 'Обер�
       )}
     </div>
   );
+}
+
+export function toInputDT(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export function DateTime({ value, onChange, min }) {
+  const minDate = min ? new Date(min) : undefined;
+  const pad = (n) => String(n).padStart(2, '0');
+  const toStr = (d) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const handle = (d) => {
+    if (!d) return onChange('');
+    let nd = new Date(d);
+    if (!value) nd.setHours(23, 59, 0, 0);
+    if (minDate && nd < minDate) nd = new Date(minDate);
+    onChange(toStr(nd));
+  };
+  return (
+    <DatePicker
+      selected={value ? new Date(value) : null}
+      onChange={handle}
+      showTimeInput
+      timeInputLabel="Час:"
+      dateFormat="dd.MM.yyyy HH:mm"
+      minDate={minDate}
+      placeholderText="дд.мм.рррр гг:хх"
+      isClearable
+      withPortal
+      className="input"
+    />
+  );
+}
+
+export function fmtDateTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d)) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 export function Field({ label, children }) {

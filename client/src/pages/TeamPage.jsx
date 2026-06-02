@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, BASE_URL } from '../api.js';
 import { getToken, getUser } from '../auth.js';
 import CommentBox from '../components/CommentBox.jsx';
-import { Button, Card, Input, Textarea, Field, Select, Modal } from '../components/ui.jsx';
+import { Button, Card, Input, Textarea, Field, Select, Modal, DateTime, toInputDT, fmtDateTime } from '../components/ui.jsx';
 
 const statusLabel = { TODO: 'До виконання', IN_PROGRESS: 'В роботі', DONE: 'Виконано' };
 
@@ -51,6 +51,13 @@ export default function TeamPage() {
   const [tAssignee, setTAssignee] = useState('');
   const [tDeadline, setTDeadline] = useState('');
 
+  const [linkModal, setLinkModal] = useState(null);
+  const [linkUrl, setLinkUrl] = useState('');
+
+  const [project, setProject] = useState(null);
+  const [projGrades, setProjGrades] = useState({});
+  const [gradeDrafts, setGradeDrafts] = useState({});
+
   async function loadData() {
     try {
       const t = await api(`/teams/${id}`, { token: getToken() });
@@ -62,6 +69,17 @@ export default function TeamPage() {
         const map = {};
         mine.forEach((r) => { map[r.rateeId] = r.score; });
         setRatings(map);
+      } else if (user.role === 'TEACHER') {
+        const proj = await api(`/projects/${t.project.id}`, { token: getToken() });
+        setProject(proj);
+        const gb = await api(`/grades/course/${proj.courseId}`, { token: getToken() });
+        const pg = {};
+        Object.entries(gb.grades).forEach(([k, score]) => {
+          const [sid, pid] = k.split('-').map(Number);
+          if (pid === proj.id) pg[sid] = score;
+        });
+        setProjGrades(pg);
+        setGradeDrafts(Object.fromEntries(Object.entries(pg).map(([k, v]) => [k, String(v)])));
       }
     } catch (err) {
       setError(err.message);
@@ -74,6 +92,7 @@ export default function TeamPage() {
 
   const isMember = team?.members.some((m) => m.userId === user.id);
   const teamSubmitted = team?.status === 'SUBMITTED';
+  const lateTeam = !!(team?.submittedAt && team?.project?.deadline && new Date(team.submittedAt) > new Date(team.project.deadline));
   const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   async function uploadFiles(url, fileList) {
@@ -85,6 +104,33 @@ export default function TeamPage() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Помилка завантаження');
     return data;
+  }
+  async function uploadUrl(url, link) {
+    const fd = new FormData();
+    fd.append('url', link);
+    const res = await fetch(`${BASE_URL}${url}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Помилка');
+    return data;
+  }
+
+  async function submitLink(e) {
+    e.preventDefault(); setError('');
+    if (!linkUrl.trim()) return;
+    try {
+      if (linkModal.kind === 'team') {
+        await uploadUrl(`/submissions/team/${id}`, linkUrl.trim());
+        setTeamFiles(await api(`/submissions/team/${id}`, { token: getToken() }));
+      } else {
+        const tid = linkModal.taskId;
+        await uploadUrl(`/submissions/task/${tid}`, linkUrl.trim());
+        const files = await api(`/submissions/task/${tid}`, { token: getToken() });
+        setTaskFiles((prev) => ({ ...prev, [tid]: files }));
+      }
+      setLinkModal(null); setLinkUrl('');
+    } catch (err) { setError(err.message); }
   }
 
   async function handleTeamFiles(e) {
@@ -191,14 +237,14 @@ export default function TeamPage() {
     setTTitle(task.title);
     setTDesc(task.description || '');
     setTAssignee(task.assigneeId ? String(task.assigneeId) : '');
-    setTDeadline(task.deadline ? task.deadline.split('T')[0] : '');
+    setTDeadline(toInputDT(task.deadline));
   }
   const isEditTask = taskFormMode && taskFormMode !== 'create';
   const taskDirty = isEditTask
     ? (tTitle !== taskFormMode.title ||
        tDesc !== (taskFormMode.description || '') ||
        tAssignee !== (taskFormMode.assigneeId ? String(taskFormMode.assigneeId) : '') ||
-       tDeadline !== (taskFormMode.deadline ? taskFormMode.deadline.split('T')[0] : ''))
+       tDeadline !== toInputDT(taskFormMode.deadline))
     : (tTitle.trim() || tDesc.trim() || tAssignee || tDeadline);
   function closeTaskForm() {
     if (taskDirty && !window.confirm('Ви точно хочете вийти? Всі зміни будуть відкинуті')) return;
@@ -229,7 +275,41 @@ export default function TeamPage() {
     } catch (err) { setError(err.message); }
   }
 
+  async function saveGrade(studentId) {
+    if (!project) return;
+    const max = project.maxScore ?? 100;
+    const raw = gradeDrafts[studentId];
+    if (raw === undefined || raw === '') return;
+    const score = Number(raw);
+    if (isNaN(score) || score < 0 || score > max) { setError(`Оцінка має бути від 0 до ${max}`); return; }
+    if (projGrades[studentId] === score) return;
+    setError('');
+    try {
+      await api('/grades', { method: 'PUT', body: { studentId, projectId: project.id, score }, token: getToken() });
+      setProjGrades((g) => ({ ...g, [studentId]: score }));
+    } catch (err) { setError(err.message); }
+  }
+  function gradeRow(studentId) {
+    if (!project) return null;
+    const max = project.maxScore ?? 100;
+    const saved = projGrades[studentId];
+    return (
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+        <input className="input" type="number" min={0} max={max}
+          value={gradeDrafts[studentId] ?? ''}
+          onChange={(e) => setGradeDrafts((d) => ({ ...d, [studentId]: e.target.value }))}
+          onBlur={() => saveGrade(studentId)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+          style={{ width: 70, padding: '4px 8px' }} />
+        <span style={{ color: 'var(--color-muted)', fontSize: 13 }}>/ {max}</span>
+        {saved != null && <span style={{ color: 'var(--color-success)', fontSize: 13 }}>✓</span>}
+      </div>
+    );
+  }
+
   if (loading) return <p style={{ textAlign: 'center', marginTop: 40 }}>Завантаження...</p>;
+
+  const isTeacher = user.role === 'TEACHER';
 
   return (
     <div style={{ maxWidth: 800, margin: '40px auto', padding: '0 16px' }}>
@@ -237,10 +317,19 @@ export default function TeamPage() {
       <h1 style={{ marginBottom: 4 }}>{team?.name}</h1>
 
       <p style={{ color: 'var(--color-muted)', marginBottom: 4 }}>Учасники:</p>
-      <ul style={{ marginTop: 0 }}>
+      <ul style={{ marginTop: 0, listStyle: isTeacher ? 'none' : 'disc', padding: isTeacher ? 0 : undefined }}>
         {[...(team?.members || [])]
           .sort((a, b) => a.user.name.localeCompare(b.user.name, 'uk'))
-          .map((m) => (<li key={m.id}>{m.user.name}</li>))}
+          .map((m) => (
+            isTeacher ? (
+              <li key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ overflowWrap: 'anywhere' }}>{m.user.name}</span>
+                {gradeRow(m.userId)}
+              </li>
+            ) : (
+              <li key={m.id}>{m.user.name}</li>
+            )
+          ))}
       </ul>
 
       {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
@@ -260,20 +349,27 @@ export default function TeamPage() {
         </Card>
       )}
 
-      {isMember && (
-        <>
-          <input ref={teamFileRef} type="file" multiple onChange={handleTeamFiles} style={{ display: 'none' }} />
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <Button variant="secondary" style={{ flex: 1 }} onClick={() => teamFileRef.current.click()}>Завантажити файли</Button>
-            {teamSubmitted ? (
-              <Button variant="secondary" style={{ flex: 1 }} onClick={() => handleSetTeamStatus('ACTIVE')}>Відмінити здачу</Button>
-            ) : (
-              <Button style={{ flex: 1 }} onClick={() => handleSetTeamStatus('SUBMITTED')}>Відправити на перевірку</Button>
-            )}
-          </div>
-        </>
+      <input ref={teamFileRef} type="file" multiple onChange={handleTeamFiles} style={{ display: 'none' }} />
+      {isMember && !teamSubmitted && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={() => teamFileRef.current.click()}>Завантажити файли</Button>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={() => { setLinkUrl(''); setLinkModal({ kind: 'team' }); }}>Додати посилання</Button>
+        </div>
       )}
-      {teamSubmitted && <p style={{ color: 'var(--color-success)', marginTop: 0 }}>Проєкт здано на перевірку</p>}
+      {isMember && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          {teamSubmitted ? (
+            <Button variant="secondary" style={{ flex: 1 }} onClick={() => handleSetTeamStatus('ACTIVE')}>Відмінити здачу</Button>
+          ) : (
+            <Button style={{ flex: 1 }} onClick={() => handleSetTeamStatus('SUBMITTED')}>Відправити на перевірку</Button>
+          )}
+        </div>
+      )}
+      {teamSubmitted && (
+        lateTeam
+          ? <p style={{ color: '#d97706', marginTop: 0 }}>Проєкт здано на перевірку із запізненням</p>
+          : <p style={{ color: 'var(--color-success)', marginTop: 0 }}>Проєкт здано на перевірку</p>
+      )}
 
       {teamFiles.length > 0 && (
         <div style={{ marginBottom: 16 }}>
@@ -281,9 +377,11 @@ export default function TeamPage() {
           <ul style={{ marginTop: 4 }}>
             {teamFiles.map((f) => (
               <li key={f.id}>
-                <a href={`${BASE_URL}/submissions/files/${f.id}/download`}>{f.fileName}</a>
+                {f.filePath
+                  ? <a href={`${BASE_URL}/submissions/files/${f.id}/download`}>{f.fileName}</a>
+                  : <a href={f.url} target="_blank" rel="noreferrer" style={{ overflowWrap: 'anywhere' }}>{f.url}</a>}
                 {f.student && <small style={{ color: '#94a3b8' }}> · {f.student.name}</small>}
-                {isMember && (
+                {isMember && !teamSubmitted && (
                   <button onClick={() => deleteTeamFile(f.id)}
                     style={{ marginLeft: 8, color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}>✖</button>
                 )}
@@ -295,7 +393,7 @@ export default function TeamPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ marginBottom: 8 }}>Завдання</h2>
-        {isMember && <Button onClick={openCreateTask}>Створити</Button>}
+        {isMember && !teamSubmitted && <Button onClick={openCreateTask}>Створити</Button>}
       </div>
 
       <input ref={taskFileRef} type="file" multiple onChange={handleTaskFiles} style={{ display: 'none' }} />
@@ -316,7 +414,7 @@ export default function TeamPage() {
                   <small style={{ color: '#94a3b8' }}>
                     Статус: {statusLabel[task.status]}
                     {task.assignee && ` · Виконавець: ${task.assignee.name}`}
-                    {task.deadline && ` · Дедлайн: ${new Date(task.deadline).toLocaleDateString()}`}
+                    {task.deadline && ` · Дедлайн: ${fmtDateTime(task.deadline)}`}
                   </small>
                 </div>
               </div>
@@ -325,7 +423,7 @@ export default function TeamPage() {
                 <div style={{ marginTop: 10 }}>
                   <p style={{ color: 'var(--color-text)' }}>{task.description || 'Без опису'}</p>
 
-                  {isAssignee && (
+                  {isAssignee && !teamSubmitted && (
                     <Field label="Статус">
                       <Select
                         value={task.status}
@@ -344,9 +442,11 @@ export default function TeamPage() {
                     <ul>
                       {files.map((f) => (
                         <li key={f.id}>
-                          <a href={`${BASE_URL}/submissions/files/${f.id}/download`}>{f.fileName}</a>
+                          {f.filePath
+                            ? <a href={`${BASE_URL}/submissions/files/${f.id}/download`}>{f.fileName}</a>
+                            : <a href={f.url} target="_blank" rel="noreferrer" style={{ overflowWrap: 'anywhere' }}>{f.url}</a>}
                           {f.student && <small style={{ color: '#94a3b8' }}> · {f.student.name}</small>}
-                          {isMember && (
+                          {isMember && !teamSubmitted && (
                             <button onClick={() => deleteTaskFile(task.id, f.id)}
                               style={{ marginLeft: 8, color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}>✖</button>
                           )}
@@ -356,13 +456,18 @@ export default function TeamPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                    {isMember && (
+                    {isAssignee && !teamSubmitted && (
                       <Button variant="secondary" onClick={() => { uploadTaskIdRef.current = task.id; taskFileRef.current.click(); }}>
                         Завантажити файли
                       </Button>
                     )}
-                    {canEdit && <Button variant="secondary" onClick={() => openEditTask(task)}>Редагувати</Button>}
-                    {canEdit && <Button variant="danger" onClick={() => deleteTask(task)}>Видалити</Button>}
+                    {isAssignee && !teamSubmitted && (
+                      <Button variant="secondary" onClick={() => { setLinkUrl(''); setLinkModal({ kind: 'task', taskId: task.id }); }}>
+                        Додати посилання
+                      </Button>
+                    )}
+                    {canEdit && !teamSubmitted && <Button variant="secondary" onClick={() => openEditTask(task)}>Редагувати</Button>}
+                    {canEdit && !teamSubmitted && <Button variant="danger" onClick={() => deleteTask(task)}>Видалити</Button>}
                   </div>
                 </div>
               )}
@@ -389,7 +494,7 @@ export default function TeamPage() {
         </Card>
       )}
 
-      {user.role === 'TEACHER' && (
+      {isTeacher && (
         <>
           <h2>Аналітика внеску</h2>
           <Button onClick={loadAnalytics} disabled={analyticsLoading}>
@@ -432,11 +537,23 @@ export default function TeamPage() {
               />
             </Field>
             <Field label="Дедлайн (необов'язково)">
-              <Input type="date" value={tDeadline} min={minDate} onChange={(e) => setTDeadline(e.target.value)} />
+              <DateTime value={tDeadline} min={minDate} onChange={setTDeadline} />
             </Field>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button type="submit" block>{isEditTask ? 'Зберегти' : 'Створити'}</Button>
               <Button type="button" variant="secondary" block onClick={closeTaskForm}>Скасувати</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {linkModal && (
+        <Modal onClose={() => setLinkModal(null)} title="Додати посилання">
+          <form onSubmit={submitLink}>
+            <Field><Input placeholder="https://..." value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} required /></Field>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button type="submit" block>Додати</Button>
+              <Button type="button" variant="secondary" block onClick={() => setLinkModal(null)}>Скасувати</Button>
             </div>
           </form>
         </Modal>

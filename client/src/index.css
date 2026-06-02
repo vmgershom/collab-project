@@ -44,7 +44,6 @@ a:hover { text-decoration: underline; }
 ::-webkit-scrollbar-thumb { background: #cbd5cf; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #a3b3ac; }
 
-/* ── UI-кит ── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1;
@@ -132,7 +131,10 @@ a:hover { text-decoration: underline; }
 .select-option:hover { background: var(--color-primary-light); }
 .select-option.selected { color: var(--color-primary); font-weight: 500; }
 
-.card { overflow-wrap: anywhere; }
+.card {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
 
 .navbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -143,14 +145,64 @@ a:hover { text-decoration: underline; }
 .navbar-brand:hover { text-decoration: none; opacity: .9; }
 .navbar-links { display: flex; gap: 4px; flex-wrap: wrap; }
 .nav-link {
-  color: #fff; text-decoration: none; font-size: 14px; font-weight: 500;
-  padding: 8px 12px; border-radius: var(--radius); transition: background .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  transition: background .15s;
 }
 .nav-link:hover { background: rgba(255,255,255,.15); text-decoration: none; }
 .nav-link.active { background: rgba(255,255,255,.22); }
-@media (max-width: 560px) {
-  .navbar { flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 16px; }
-  .navbar-brand { font-size: 18px; }
-  .navbar-links { width: 100%; flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
-  .nav-link { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+
+.ql-container { min-height: 140px; font-family: inherit; font-size: 14px; }
+.ql-toolbar { background: #f8faf9; }
+.rich-view {
+  padding: 0 !important;
+  line-height: 1.5;
+  height: auto !important;
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.rich-view * {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.rich-view a {
+  word-break: break-all;
+}
+
+.course-page { max-width: 900px; margin: 40px auto; padding: 0 16px; }
+.course-nav { position: fixed; top: 76px; left: 16px; z-index: 50; width: 240px; max-width: calc(100vw - 32px); }
+.course-sidebar { margin-top: 8px; max-height: calc(100vh - 140px); overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); padding: 12px; box-shadow: var(--shadow-md); }
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 12px;
+  }
+  .navbar-brand { font-size: 18px; flex-shrink: 0; }
+  .navbar-links {
+    width: auto;
+    flex-wrap: nowrap;
+    gap: 14px;
+    flex-shrink: 0;
+    margin-left: auto;
+    overflow: visible;
+  }
+  .nav-text { display: none; }
+  .nav-link { padding: 6px; font-size: 14px; }
+
+  .course-nav { position: static; width: auto; max-width: none; margin: 12px 16px 0; left: auto; top: auto; z-index: auto; }
+  .course-sidebar { max-height: 60vh; }
+  .course-page { margin-top: 16px; }
 }

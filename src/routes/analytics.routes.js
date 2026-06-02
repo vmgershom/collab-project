@@ -14,7 +14,6 @@ router.get('/teams/:id/contribution', authenticate, async (req, res) => {
     });
     if (!team) return res.status(404).json({ error: 'Команду не знайдено' });
 
-    // лише викладач-власник курсу проєкту
     if (req.user.role !== 'TEACHER' || team.project.teacherId !== req.user.userId) {
       return res.status(403).json({ error: 'Аналітика доступна лише викладачу' });
     }

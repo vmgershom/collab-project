@@ -25,6 +25,8 @@ router.get('/', authenticate, async (req, res) => {
         deadline: p.deadline,
         courseId: p.courseId,
         courseName: p.course.name,
+        projectType: p.type,
+        projectId: p.id,
       }));
     } else {
       const memberships = await prisma.teamMember.findMany({
@@ -41,7 +43,7 @@ router.get('/', authenticate, async (req, res) => {
       const tasks = await prisma.task.findMany({
         where: { teamId: { in: teamIds }, deadline: { not: null } },
         include: {
-          team: { select: { project: { select: { courseId: true, course: { select: { name: true } } } } } },
+          team: { select: { project: { select: { name: true, courseId: true, course: { select: { name: true } } } } } },
         },
       });
 
@@ -52,6 +54,8 @@ router.get('/', authenticate, async (req, res) => {
           deadline: p.deadline,
           courseId: p.courseId,
           courseName: p.course.name,
+          projectType: p.type,
+          projectId: p.id,
         })),
         ...tasks.map((t) => ({
           type: 'TASK',
@@ -59,6 +63,8 @@ router.get('/', authenticate, async (req, res) => {
           deadline: t.deadline,
           courseId: t.team.project.courseId,
           courseName: t.team.project.course.name,
+          projectName: t.team.project.name,
+          teamId: t.teamId,
         })),
       ];
     }

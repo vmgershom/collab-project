@@ -2,10 +2,10 @@ const express = require('express');
 const prisma = require('../prismaClient');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { getTeamAccess } = require('../utils/access');
+const { notify, notifyMany } = require('../utils/notify');
 
 const router = express.Router();
 
-// створити команду: викладач-власник АБО студент, записаний на курс (студент автоматично стає учасником)
 router.post('/', authenticate, async (req, res) => {
   try {
     const { name, projectId } = req.body;
@@ -27,7 +27,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Немає доступу до цього проєкту' });
     }
 
-    // студент не може створити команду, якщо вже входить до команди цього проєкту
     if (req.user.role === 'STUDENT') {
       const existing = await prisma.teamMember.findFirst({
         where: { userId: req.user.userId, team: { projectId } },
@@ -39,7 +38,6 @@ router.post('/', authenticate, async (req, res) => {
 
     const team = await prisma.team.create({ data: { name, projectId } });
 
-    // студент-творець автоматично стає учасником
     if (req.user.role === 'STUDENT') {
       await prisma.teamMember.create({ data: { teamId: team.id, userId: req.user.userId } });
     }
@@ -51,7 +49,6 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// приєднати учасника: викладач — будь-кого свого; студент — лише себе
 router.post('/:id/members', authenticate, async (req, res) => {
   try {
     const teamId = Number(req.params.id);
@@ -70,12 +67,10 @@ router.post('/:id/members', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Студент може додати лише себе' });
     }
 
-    // якщо пряме приєднання закрите — лише за кодом
     if (!team.openJoin && isSelf) {
       return res.status(403).json({ error: 'Пряме приєднання закрите. Використовуйте код запрошення' });
     }
 
-    // той, кого додають, має бути студентом і записаним на курс проєкту
     const student = await prisma.user.findUnique({ where: { id: userId } });
     if (!student || student.role !== 'STUDENT') {
       return res.status(400).json({ error: 'Учасником може бути лише студент' });
@@ -87,7 +82,6 @@ router.post('/:id/members', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Студент не записаний на курс цього проєкту' });
     }
 
-    // студент не може бути більш ніж в одній команді цього проєкту
     const alreadyInProject = await prisma.teamMember.findFirst({
       where: {
         userId,
@@ -99,6 +93,15 @@ router.post('/:id/members', authenticate, async (req, res) => {
     }
 
     const member = await prisma.teamMember.create({ data: { teamId, userId } });
+
+    const existing = await prisma.teamMember.findMany({ where: { teamId, userId: { not: userId } }, select: { userId: true } });
+    const newUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    await notifyMany(existing.map((m) => m.userId), {
+      type: 'TEAM_MEMBER_JOINED',
+      title: `${newUser?.name || 'Користувач'} приєднався до команди «${team.name}»`,
+      link: `/teams/${teamId}`,
+    });
+
     res.status(201).json(member);
   } catch (err) {
     if (err.code === 'P2002') {
@@ -109,7 +112,6 @@ router.post('/:id/members', authenticate, async (req, res) => {
   }
 });
 
-// список команд (фільтр: /teams?projectId=1) зі складом учасників
 router.get('/', authenticate, async (req, res) => {
   const { projectId } = req.query;
   const where = projectId ? { projectId: Number(projectId) } : undefined;
@@ -123,7 +125,6 @@ router.get('/', authenticate, async (req, res) => {
   res.json(teams);
 });
 
-// одна команда за id зі складом учасників
 router.get('/:id', authenticate, async (req, res) => {
   const teamId = Number(req.params.id);
   const { team, allowed } = await getTeamAccess(teamId, req.user);
@@ -133,14 +134,13 @@ router.get('/:id', authenticate, async (req, res) => {
   const full = await prisma.team.findUnique({
     where: { id: teamId },
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, deadline: true } },
       members: { include: { user: { select: { id: true, name: true } } } },
     },
   });
   res.json(full);
 });
 
-// здати/відмінити здачу + закрити/відкрити пряме приєднання
 router.patch('/:id', authenticate, async (req, res) => {
   try {
     const teamId = Number(req.params.id);
@@ -159,6 +159,7 @@ router.patch('/:id', authenticate, async (req, res) => {
         return res.status(403).json({ error: 'Здавати проєкт можуть лише студенти команди' });
       }
       data.status = status;
+      data.submittedAt = status === 'SUBMITTED' ? new Date() : null;
     }
 
     if (openJoin !== undefined) {
@@ -173,6 +174,18 @@ router.patch('/:id', authenticate, async (req, res) => {
     }
 
     const updated = await prisma.team.update({ where: { id: teamId }, data });
+
+    if (status === 'SUBMITTED' && team.status !== 'SUBMITTED') {
+      const proj = await prisma.project.findUnique({ where: { id: team.projectId } });
+      const late = proj?.deadline && new Date() > new Date(proj.deadline);
+      await notify({
+        userId: proj.teacherId,
+        type: 'SUBMISSION',
+        title: `Команда «${team.name}» здала проєкт «${proj.name}»${late ? ' (із запізненням)' : ''}`,
+        link: `/teams/${teamId}`,
+      });
+    }
+
     res.json(updated);
   } catch (err) {
     console.error(err);
@@ -180,7 +193,6 @@ router.patch('/:id', authenticate, async (req, res) => {
   }
 });
 
-// покинути команду / прибрати учасника
 router.delete('/:id/members/:userId', authenticate, async (req, res) => {
   try {
     const teamId = Number(req.params.id);
@@ -205,7 +217,16 @@ router.delete('/:id/members/:userId', authenticate, async (req, res) => {
 
     await prisma.teamMember.delete({ where: { id: membership.id } });
 
-    // автовидалення порожньої команди
+    const leftUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    const stayMembers = await prisma.teamMember.findMany({ where: { teamId }, select: { userId: true } });
+    if (stayMembers.length > 0) {
+      await notifyMany(stayMembers.map((m) => m.userId), {
+        type: 'TEAM_MEMBER_LEFT',
+        title: `${leftUser?.name || 'Користувач'} покинув команду «${team.name}»`,
+        link: `/teams/${teamId}`,
+      });
+    }
+
     const remaining = await prisma.teamMember.count({ where: { teamId } });
     if (remaining === 0) {
       await prisma.team.delete({ where: { id: teamId } });

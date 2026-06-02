@@ -1,6 +1,3 @@
-// Метод аналізу ієрархій
-
-// нормовані локальні пріоритети з матриці попарних порівнянь (геом. середні рядків)
 function priorityVector(matrix) {
   const n = matrix.length;
   const gm = matrix.map((row) => Math.pow(row.reduce((a, b) => a * b, 1), 1 / n));
@@ -8,7 +5,6 @@ function priorityVector(matrix) {
   return gm.map((g) => g / sum);
 }
 
-// перевірка узгодженості матриці: lambda_max, CI, CR
 function consistency(matrix, weights) {
   const n = matrix.length;
   const Aw = matrix.map((row) => row.reduce((acc, v, j) => acc + v * weights[j], 0));
@@ -19,8 +15,6 @@ function consistency(matrix, weights) {
   return { lambdaMax, CI, CR };
 }
 
-// локальні пріоритети альтернатив за критерієм — нормування виміряних показників
-// (еквівалент вектора пріоритетів ідеально узгодженої матриці співвідношень a_xy = v_x / v_y)
 function normalizeValues(values) {
   const sum = values.reduce((a, b) => a + b, 0);
   if (sum === 0) return values.map(() => 1 / values.length);

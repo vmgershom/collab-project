@@ -5,7 +5,6 @@ const { getTeamAccess } = require('../utils/access');
 
 const router = express.Router();
 
-// поставити/змінити оцінку співпраці (1–5)
 router.post('/', authenticate, async (req, res) => {
   try {
     const { teamId, rateeId, score } = req.body;
@@ -37,7 +36,6 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// мої виставлені оцінки в команді (для підсвічування зірочок)
 router.get('/mine', authenticate, async (req, res) => {
   try {
     const teamId = Number(req.query.teamId);

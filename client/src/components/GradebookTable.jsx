@@ -25,12 +25,18 @@ export default function GradebookTable({ courseId }) {
   function handleChange(studentId, projectId, value) {
     setLocalGrades((prev) => ({ ...prev, [`${studentId}-${projectId}`]: value }));
   }
+  
   async function saveGrade(studentId, projectId) {
     const key = `${studentId}-${projectId}`;
     const val = localGrades[key];
     if (val === undefined || val === '') return;
     const score = Number(val);
-    if (isNaN(score) || score < 0 || score > 100) { setError('Оцінка має бути від 0 до 100'); return; }
+    const proj = data.projects.find((x) => x.id === projectId);
+    const max = proj?.maxScore ?? 100;
+    if (isNaN(score) || score < 0 || score > max) {
+      setError(`Оцінка має бути від 0 до ${max}`);
+      return;
+    }
     setError('');
     try { await api('/grades', { method: 'PUT', body: { studentId, projectId, score }, token: getToken() }); }
     catch (err) { setError(err.message); }
@@ -55,7 +61,7 @@ export default function GradebookTable({ courseId }) {
             <thead>
               <tr>
                 <th style={{ ...head, width: 160 }}>Студент</th>
-                {data.projects.map((p) => (<th key={p.id} style={{ ...head, textAlign: 'center' }}>{p.name}</th>))}
+                {data.projects.map((p) => (<th key={p.id} style={{ ...head, textAlign: 'center' }}>{p.name}<div style={{ fontWeight: 400, fontSize: 12, color: 'var(--color-muted)' }}>макс. {p.maxScore ?? 100}</div></th>))}
               </tr>
             </thead>
             <tbody>
@@ -66,7 +72,7 @@ export default function GradebookTable({ courseId }) {
                     const key = `${s.id}-${p.id}`;
                     return (
                       <td key={p.id} style={{ ...cell, padding: 4, textAlign: 'center' }}>
-                        <input type="number" min={0} max={100} value={localGrades[key] ?? ''}
+                        <input type="number" min={0} max={p.maxScore ?? 100} value={localGrades[key] ?? ''}
                           onChange={(e) => handleChange(s.id, p.id, e.target.value)}
                           onBlur={() => saveGrade(s.id, p.id)}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveGrade(s.id, p.id); e.target.blur(); } }}
@@ -81,9 +87,6 @@ export default function GradebookTable({ courseId }) {
           </table>
         </div>
       )}
-      <p style={{ color: 'var(--color-muted)', fontSize: 14, marginTop: 8 }}>
-        Введіть оцінку (0–100) і клікніть поза полем або натисніть Enter для збереження.
-      </p>
     </>
   );
 }

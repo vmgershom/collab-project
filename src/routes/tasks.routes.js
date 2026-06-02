@@ -2,10 +2,10 @@ const express = require('express');
 const prisma = require('../prismaClient');
 const { authenticate } = require('../middleware/auth');
 const { getTeamAccess } = require('../utils/access');
+const { notify } = require('../utils/notify');
 
 const router = express.Router();
 
-// створити завдання (лише учасник команди); фіксуємо творця
 router.post('/', authenticate, async (req, res) => {
   try {
     const { title, description, deadline, teamId, assigneeId } = req.body;
@@ -37,6 +37,14 @@ router.post('/', authenticate, async (req, res) => {
         createdById: req.user.userId,
       },
     });
+    if (task.assigneeId && task.assigneeId !== req.user.userId) {
+      await notify({
+        userId: task.assigneeId,
+        type: 'TASK_ASSIGNED',
+        title: `Вам призначено завдання «${task.title}»`,
+        link: `/teams/${teamId}`,
+      });
+    }
     res.status(201).json(task);
   } catch (err) {
     console.error(err);
@@ -44,7 +52,6 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// список завдань команди (перегляд: учасник або викладач-власник)
 router.get('/', authenticate, async (req, res) => {
   const { teamId } = req.query;
   if (!teamId) return res.status(400).json({ error: 'Потрібен teamId' });
@@ -60,7 +67,6 @@ router.get('/', authenticate, async (req, res) => {
   res.json(tasks);
 });
 
-// оновити завдання: статус — лише виконавець; назву/інше — виконавець або творець (поки TODO)
 router.patch('/:id', authenticate, async (req, res) => {
   try {
     const taskId = Number(req.params.id);
@@ -74,7 +80,6 @@ router.patch('/:id', authenticate, async (req, res) => {
     const { title, description, deadline, status, assigneeId } = req.body;
     const data = {};
 
-    // зміна статусу — лише виконавець
     if (status !== undefined) {
       if (!isAssignee) {
         return res.status(403).json({ error: 'Змінювати статус може лише виконавець завдання' });
@@ -87,7 +92,6 @@ router.patch('/:id', authenticate, async (req, res) => {
       data.completedAt = status === 'DONE' ? new Date() : null;
     }
 
-    // зміна назви / опису / дедлайну / виконавця — за правом редагування
     const changingOther =
       title !== undefined || description !== undefined || deadline !== undefined || assigneeId !== undefined;
     if (changingOther) {
@@ -103,6 +107,14 @@ router.patch('/:id', authenticate, async (req, res) => {
     }
 
     const task = await prisma.task.update({ where: { id: taskId }, data });
+    if (assigneeId !== undefined && assigneeId && assigneeId !== existing.assigneeId && assigneeId !== req.user.userId) {
+      await notify({
+        userId: assigneeId,
+        type: 'TASK_ASSIGNED',
+        title: `Вам призначено завдання «${task.title}»`,
+        link: `/teams/${task.teamId}`,
+      });
+    }
     res.json(task);
   } catch (err) {
     console.error(err);
@@ -110,7 +122,6 @@ router.patch('/:id', authenticate, async (req, res) => {
   }
 });
 
-// видалити завдання: виконавець завжди; творець — лише поки TODO
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const taskId = Number(req.params.id);

@@ -28,6 +28,17 @@ enum InvitationType {
   TEAM
 }
 
+enum MaterialType {
+  INFO
+  FILES
+  LINK
+}
+
+enum ProjectType {
+  TEAM
+  SOLO
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   role      Role     @default(STUDENT)
@@ -49,6 +60,9 @@ model User {
   enrollments        Enrollment[]
   createdInvitations Invitation[]
 
+  notifications        Notification[]
+  notificationSettings NotificationSetting[]
+
   givenRatings    PeerRating[] @relation("Rater")
   receivedRatings PeerRating[] @relation("Ratee")
 
@@ -64,26 +78,59 @@ model Course {
   teacher     User     @relation(fields: [teacherId], references: [id])
   createdAt   DateTime @default(now())
 
+  sections    Section[]
   projects    Project[]
   materials   Material[]
   enrollments Enrollment[]
   invitations Invitation[]
 }
 
+model Section {
+  id        Int       @id @default(autoincrement())
+  name      String
+  order     Int       @default(0)
+  hidden    Boolean   @default(false)
+  openAt    DateTime?
+  courseId  Int
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  projects  Project[]
+  materials Material[]
+}
+
 model Project {
-  id          Int       @id @default(autoincrement())
+  id          Int         @id @default(autoincrement())
   name        String
   description String?
   deadline    DateTime?
+  type        ProjectType @default(TEAM)
+  maxScore    Int         @default(100)
+  order       Int         @default(0)
+  sectionId   Int
+  section     Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   courseId    Int
-  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
   teacherId   Int
-  teacher     User      @relation(fields: [teacherId], references: [id])
-  createdAt   DateTime  @default(now())
+  teacher     User        @relation(fields: [teacherId], references: [id])
+  createdAt   DateTime    @default(now())
+  openAt DateTime?
 
-  teams    Team[]
-  comments Comment[]
-  grades   Grade[]
+  teams       Team[]
+  comments    Comment[]
+  grades      Grade[]
+  submissions Submission[]
+  attachments Attachment[]
+}
+
+model Attachment {
+  id        Int      @id @default(autoincrement())
+  fileName  String
+  filePath  String?
+  url       String?
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model Team {
@@ -101,6 +148,7 @@ model Team {
   peerRatings PeerRating[]
   comments    Comment[]
   submissions Submission[]
+  submittedAt DateTime?
 }
 
 model TeamMember {
@@ -137,12 +185,16 @@ model Submission {
   id          Int      @id @default(autoincrement())
   fileName    String
   filePath    String?
+  url         String?
   taskId      Int?
   task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   teamId      Int?
   team        Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  projectId   Int?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   studentId   Int
   student     User     @relation(fields: [studentId], references: [id])
+  submitted   Boolean  @default(true)
   submittedAt DateTime @default(now())
 }
 
@@ -150,6 +202,11 @@ model Material {
   id           Int            @id @default(autoincrement())
   title        String
   description  String?
+  type         MaterialType   @default(INFO)
+  url          String?
+  order        Int            @default(0)
+  sectionId    Int
+  section      Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   courseId     Int?
   course       Course?        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   uploadedById Int
@@ -161,6 +218,8 @@ model Material {
 model Comment {
   id        Int      @id @default(autoincrement())
   content   String
+  isPrivate Boolean  @default(false)
+  studentId Int?
   authorId  Int
   author    User     @relation(fields: [authorId], references: [id])
   taskId    Int?
@@ -170,6 +229,31 @@ model Comment {
   teamId    Int?
   team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  read      Boolean  @default(false)
+  dedupeKey String?  @unique
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model NotificationSetting {
+  id      Int     @id @default(autoincrement())
+  userId  Int
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type    String
+  enabled Boolean @default(true)
+
+  @@unique([userId, type])
 }
 
 model PeerRating {

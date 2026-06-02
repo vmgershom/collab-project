@@ -1,15 +1,15 @@
 export const theme = {
   colors: {
-    primary: '#0d9488',        // основна бірюза
+    primary: '#0d9488',
     primaryHover: '#0f766e',
-    primaryLight: '#f0fdfa',   // світлий фон-акцент
+    primaryLight: '#f0fdfa',
     primaryBorder: '#5eead4',
-    text: '#1f2933',           // основний текст
-    textMuted: '#64748b',      // другорядний текст
-    textFaint: '#94a3b8',      // підказки
+    text: '#1f2933',
+    textMuted: '#64748b',
+    textFaint: '#94a3b8',
     border: '#e2e8e5',
-    surface: '#ffffff',        // картки/поверхні
-    background: '#f4f8f6',     // фон сторінки
+    surface: '#ffffff',
+    background: '#f4f8f6',
     danger: '#dc2626',
     dangerHover: '#b91c1c',
     success: '#15803d',

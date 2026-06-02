@@ -2,7 +2,6 @@ const prisma = require('../prismaClient');
 const { normalizeValues } = require('../utils/ahp');
 const { CRITERIA_WEIGHTS, CRITERIA_CONSISTENCY } = require('../utils/criteriaMatrix');
 
-// зібрати показники N, D, A, G для кожного учасника команди
 async function collectMetrics(teamId) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
@@ -17,30 +16,26 @@ async function collectMetrics(teamId) {
   for (const m of team.members) {
     const uid = m.userId;
 
-    // k1: кількість виконаних завдань
     const doneTasks = tasks.filter((t) => t.assigneeId === uid && t.status === 'DONE');
     const N = doneTasks.length;
 
-    // k2: своєчасність (частка виконаних вчасно; завдання без дедлайну = вчасно)
     let onTime = 0;
     for (const t of doneTasks) {
       if (!t.deadline || (t.completedAt && t.completedAt <= t.deadline)) onTime++;
     }
     const D = doneTasks.length === 0 ? 0 : onTime / doneTasks.length;
 
-    // k3: активність = кількість коментарів студента під завданнями команди
     const A = await prisma.comment.count({
       where: {
         authorId: uid,
         OR: [
-          { teamId },                       // загальна гілка команди
-          { taskId: { in: taskIds } },      // гілки-завдання команди
-          { projectId: team.projectId },    // коментарі під проєктом команди
+          { teamId },
+          { taskId: { in: taskIds } },
+          { projectId: team.projectId },
         ],
       },
     });
 
-    // k4: середня оцінка співпраці, отримана від інших у цій команді
     const ratings = await prisma.peerRating.findMany({ where: { teamId, rateeId: uid } });
     const G = ratings.length === 0
       ? 0
@@ -51,13 +46,11 @@ async function collectMetrics(teamId) {
   return metrics;
 }
 
-// розрахувати показник внеску R для кожного студента команди
 async function computeContribution(teamId) {
   const metrics = await collectMetrics(teamId);
   if (!metrics) return null;
   if (metrics.length === 0) return { teamId, members: [], note: 'У команді немає учасників' };
 
-  // локальні пріоритети за кожним критерієм (нормування показників)
   const pN = normalizeValues(metrics.map((m) => m.N));
   const pD = normalizeValues(metrics.map((m) => m.D));
   const pA = normalizeValues(metrics.map((m) => m.A));

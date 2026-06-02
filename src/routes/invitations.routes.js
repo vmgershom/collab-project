@@ -2,10 +2,10 @@ const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../prismaClient');
 const { authenticate } = require('../middleware/auth');
+const { notify, notifyMany } = require('../utils/notify');
 
 const router = express.Router();
 
-// створити запрошення (курс — викладач; команда — викладач або учасник)
 router.post('/', authenticate, async (req, res) => {
   try {
     const { type, courseId, teamId } = req.body;
@@ -50,7 +50,6 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// застосувати код запрошення
 router.post('/redeem', authenticate, async (req, res) => {
   try {
     const { code } = req.body;
@@ -70,7 +69,14 @@ router.post('/redeem', authenticate, async (req, res) => {
       await prisma.enrollment.create({
         data: { courseId: invitation.courseId, userId: req.user.userId },
       });
-      const course = await prisma.course.findUnique({ where: { id: invitation.courseId }, select: { name: true } });
+      const course = await prisma.course.findUnique({ where: { id: invitation.courseId }, select: { name: true, teacherId: true } });
+      const studentObj = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true } });
+      await notify({
+        userId: course.teacherId,
+        type: 'COURSE_JOINED',
+        title: `${studentObj?.name || 'Студент'} приєднався до курсу «${course.name}»`,
+        link: `/courses/${invitation.courseId}`,
+      });
       res.json({ message: `Ви приєднались до курсу «${course.name}»` });
     } else if (invitation.type === 'TEAM') {
       const team = await prisma.team.findUnique({
@@ -93,7 +99,14 @@ router.post('/redeem', authenticate, async (req, res) => {
       if (alreadyInProject) {
         return res.status(400).json({ error: 'Ви вже входите до команди цього проєкту' });
       }
+      const beforeMembers = await prisma.teamMember.findMany({ where: { teamId: invitation.teamId }, select: { userId: true } });
       await prisma.teamMember.create({ data: { teamId: invitation.teamId, userId: req.user.userId } });
+      const newUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true } });
+      await notifyMany(beforeMembers.map((m) => m.userId), {
+        type: 'TEAM_MEMBER_JOINED',
+        title: `${newUser?.name || 'Користувач'} приєднався до команди «${team.name}»`,
+        link: `/teams/${invitation.teamId}`,
+      });
       res.json({ message: `Ви приєднались до команди «${team.name}»` });
     }
   } catch (err) {

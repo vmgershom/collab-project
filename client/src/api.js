@@ -1,6 +1,5 @@
 export const BASE_URL = 'http://localhost:3000';
 
-// універсальна функція запиту до бекенду
 export async function api(path, { method = 'GET', body, token } = {}) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';

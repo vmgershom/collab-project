@@ -8,7 +8,7 @@ export default function MaterialsTab({ courseId, isTeacher }) {
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
-  const [formMode, setFormMode] = useState(null); // null | 'create' | об'єкт матеріалу
+  const [formMode, setFormMode] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState([]);
