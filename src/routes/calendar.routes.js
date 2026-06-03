@@ -29,17 +29,29 @@ router.get('/', authenticate, async (req, res) => {
         projectId: p.id,
       }));
     } else {
+      // 1. Курси, на які записаний студент
+      const enrollments = await prisma.enrollment.findMany({
+        where: { userId: me.id },
+        select: { courseId: true },
+      });
+      const courseIds = enrollments.map((e) => e.courseId);
+
+      // 2. Команди студента (потрібні для завдань)
       const memberships = await prisma.teamMember.findMany({
         where: { userId: me.id },
-        select: { teamId: true, team: { select: { projectId: true } } },
+        select: { teamId: true },
       });
       const teamIds = memberships.map((m) => m.teamId);
-      const projectIds = [...new Set(memberships.map((m) => m.team.projectId))];
 
+      // Усі проєкти курсів, на яких студент — незалежно від наявності команди
       const projects = await prisma.project.findMany({
-        where: { id: { in: projectIds }, deadline: { not: null } },
+        where: {
+          courseId: { in: courseIds },
+          deadline: { not: null },
+        },
         include: { course: { select: { name: true } } },
       });
+
       const tasks = await prisma.task.findMany({
         where: { teamId: { in: teamIds }, deadline: { not: null } },
         include: {
