@@ -63,8 +63,14 @@ router.get('/course/:courseId', authenticate, requireRole('TEACHER'), async (req
 
     const projects = await prisma.project.findMany({
       where: { courseId },
-      select: { id: true, name: true, maxScore: true },
-      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        maxScore: true,
+        order: true,
+        section: { select: { order: true } },
+      },
+      orderBy: [{ section: { order: 'asc' } }, { order: 'asc' }],
     });
 
     const grades = await prisma.grade.findMany({

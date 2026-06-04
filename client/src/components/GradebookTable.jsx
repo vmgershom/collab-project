@@ -46,7 +46,7 @@ export default function GradebookTable({ courseId }) {
   if (!data) return <p style={{ color: 'var(--color-danger)' }}>{error}</p>;
 
   const cell = { border: '1px solid var(--color-border)', padding: '10px 12px' };
-  const head = { ...cell, textAlign: 'left', background: 'var(--color-primary-light)', fontWeight: 600, overflowWrap: 'anywhere' };
+  const head = { ...cell, textAlign: 'left', background: 'var(--color-primary-light)', fontWeight: 600, overflowWrap: 'break-word' };
 
   return (
     <>
@@ -57,11 +57,11 @@ export default function GradebookTable({ courseId }) {
         <p style={{ color: 'var(--color-muted)' }}>У курсі немає проєктів.</p>
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', background: 'var(--color-surface)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 480 }}>
+          <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
             <thead>
               <tr>
-                <th style={{ ...head, width: 160 }}>Студент</th>
-                {data.projects.map((p) => (<th key={p.id} style={{ ...head, textAlign: 'center' }}>{p.name}<div style={{ fontWeight: 400, fontSize: 12, color: 'var(--color-muted)' }}>макс. {p.maxScore ?? 100}</div></th>))}
+                <th style={{ ...head, minWidth: 160, width: 160 }}>Студент</th>
+{data.projects.map((p) => (<th key={p.id} style={{ ...head, textAlign: 'center', minWidth: 130 }}>{p.name}<div style={{ fontWeight: 400, fontSize: 12, color: 'var(--color-muted)' }}>макс. {p.maxScore ?? 100}</div></th>))}
               </tr>
             </thead>
             <tbody>
